@@ -19,6 +19,7 @@ const Out = path.join(App, 'Build');
 const Word = 'Arc';
 const Mode = process.argv[2] || 'build';
 const Skip = new Set(['node_modules', 'Build', '.DS_Store', 'Config.js', '.firebaserc', 'Hashes.json', 'Session.json', 'Device.txt']);
+const { Mark } = await import(path.join(App, 'Mark.js'));
 const Problems = [];
 const Fail = Text => Problems.push(Text);
 const Clock = Date.now();
@@ -26,6 +27,11 @@ const Say = Text => console.log(`${String(((Date.now() - Clock) / 1000).toFixed(
 const Sha = Bytes => crypto.createHash('sha256').update(Bytes).digest('hex');
 const Read = File => fs.readFileSync(File, 'utf8');
 const Rel = File => path.relative(Here, File).split(path.sep).join('/');
+
+// the favicon follows light and dark mode (Chrome and Firefox read the media query inside an SVG icon)
+const FaviconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${Mark.Square}"><style>path{fill:#000}@media (prefers-color-scheme:dark){path{fill:#fff}}</style><path d="${Mark.Shape}"/></svg>`;
+const Icon = `<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,${encodeURIComponent(FaviconSvg)}">`;
+const MarkSvg = `<svg width="22" height="20" viewBox="${Mark.Box}" aria-hidden="true"><path fill="currentColor" d="${Mark.Shape}"/></svg>`;
 
 // ---- 1. hashes ----
 function Walk(Dir, Found = []) {
@@ -51,9 +57,10 @@ function Verify() {
 }
 
 // ---- 2. validity ----
+// Config.js is optional: it builds a default Firebase project into this copy of the app. Without it, the app asks for a project when it first runs.
 function Config() {
   const File = path.join(App, 'Config.js');
-  if (!fs.existsSync(File)) { Fail('Source/1/Config.js is missing. Copy Config.Example.js and fill in your Firebase project.'); return ''; }
+  if (!fs.existsSync(File)) return '';
   const Text = Read(File), Box = { globalThis: {} };
   try { vm.runInNewContext(Text, Box); } catch (Failure) { Fail(`Config.js does not run: ${Failure.message}`); return ''; }
   const Values = Box.globalThis.ArcConfig || {};
@@ -70,6 +77,32 @@ function Syntax(Code, Extension, Label) {
   try { execFileSync(process.execPath, ['--check', File], { stdio: 'pipe' }); }
   catch (Failure) { Fail(`${Label} does not parse: ${String(Failure.stderr).split('\n').slice(0, 4).join(' | ')}`); }
   fs.rmSync(File, { force: true });
+}
+
+// Compressor tokenizes without knowing regex literals, so a quote or backtick inside one would hide the code after it from renaming.
+function Lint(File, Text) {
+  let Prev = '';
+  for (let At = 0; At < Text.length;) {
+    const Char = Text[At], Next = Text[At + 1];
+    if (Char === '/' && Next === '/') { const End = Text.indexOf('\n', At); At = End < 0 ? Text.length : End; continue; }
+    if (Char === '/' && Next === '*') { const End = Text.indexOf('*/', At + 2); At = End < 0 ? Text.length : End + 2; continue; }
+    if (Char === '"' || Char === "'") { let End = At + 1; while (End < Text.length && Text[End] !== Char) End += Text[End] === '\\' ? 2 : 1; At = End + 1; Prev = 'x'; continue; }
+    if (Char === '`') { let End = At + 1; while (End < Text.length && Text[End] !== '`') End += Text[End] === '\\' ? 2 : 1; At = End + 1; Prev = 'x'; continue; }
+    if (Char === '/' && (Prev === '' || '(,=:[!&|?{};+-*%<>~^'.includes(Prev))) {
+      let End = At + 1, Class = false;
+      while (End < Text.length && Text[End] !== '\n') {
+        const Here_ = Text[End];
+        if (Here_ === '\\') { End += 2; continue; }
+        if (Here_ === '[') Class = true; else if (Here_ === ']') Class = false; else if (Here_ === '/' && !Class) break;
+        End++;
+      }
+      const Body = Text.slice(At + 1, End);
+      if (Body.includes('"') || Body.includes("'") || Body.includes('`')) Fail(`${Rel(File)}:${Text.slice(0, At).split('\n').length}: a regex literal contains a quote or backtick, which Compressor cannot see; build it another way`);
+      At = End + 1; Prev = 'x'; continue;
+    }
+    if (!/\s/.test(Char)) Prev = Char;
+    At++;
+  }
 }
 
 // ---- 3. bundling ----
@@ -93,7 +126,7 @@ function Bundle(Entry, ConfigText) {
     Text = Text.replace(/^import\s+(?:[^'"\n]*?\s+from\s+)?['"]([^'"]+)['"];?[ \t]*$/gm, (Line, Spec) => {
       if (Spec.startsWith('.')) {
         const Target = path.resolve(path.dirname(File), Spec);
-        if (path.basename(Target) === 'Config.js') UsesConfig = true; else Visit(Target);
+        if (Target === path.join(App, 'Config.js')) UsesConfig = true; else Visit(Target);
       } else Hoist(Line, Spec);
       return '';
     });
@@ -139,6 +172,36 @@ function Blank(Text) {
   return Out_;
 }
 
+// Compressor treats a piece of template text that is exactly a renamed word (say `h` in `h${Size}v`) as a name and renames it,
+// which corrupts the string. Collect the static pieces so those names can be left alone.
+function TemplateTexts(Text) {
+  const Found = new Set();
+  for (let At = 0; At < Text.length;) {
+    const Char = Text[At], Next = Text[At + 1];
+    if (Char === '/' && Next === '/') { const End = Text.indexOf('\n', At); At = End < 0 ? Text.length : End; continue; }
+    if (Char === '/' && Next === '*') { const End = Text.indexOf('*/', At + 2); At = End < 0 ? Text.length : End + 2; continue; }
+    if (Char === '"' || Char === "'") { let End = At + 1; while (End < Text.length && Text[End] !== Char) End += Text[End] === '\\' ? 2 : 1; At = End + 1; continue; }
+    if (Char === '`') {
+      let End = At + 1, Part = '';
+      while (End < Text.length && Text[End] !== '`') {
+        if (Text[End] === '\\') { Part += Text.slice(End, End + 2); End += 2; continue; }
+        if (Text[End] === '$' && Text[End + 1] === '{') {
+          if (Part) Found.add(Part);
+          Part = '';
+          let Depth = 1, Stop = End + 2;
+          while (Stop < Text.length && Depth) { if (Text[Stop] === '{') Depth++; else if (Text[Stop] === '}') Depth--; Stop++; }
+          End = Stop; continue;
+        }
+        Part += Text[End]; End++;
+      }
+      if (Part) Found.add(Part);
+      At = End + 1; continue;
+    }
+    At++;
+  }
+  return Found;
+}
+
 const Keywords = new Set('break case catch class const continue debugger default delete do else export extends finally for function if import in instanceof let new return super switch this throw try typeof var void while with yield await async static get set of null true false undefined arguments constructor'.split(' '));
 const Browser = new Set('screen stop event name status top parent self history location document window navigator performance close open focus blur origin length find print alert confirm prompt fetch crypto Option Image Audio Event Error Buffer Request Response Headers Notification'.split(' '));
 const Identifier = /^[A-Za-z_$][\w$]*$/;
@@ -178,7 +241,8 @@ function Names(Source, Imports) {
   for (const Match of Code.matchAll(/[,{]\s*(?:(?:async|get|set)\s+)?([A-Za-z_$][\w$]*)\s*\([^()]*\)\s*\{/g)) Props.add(Match[1]);
 
   const Globals = new Set(Object.getOwnPropertyNames(globalThis));
-  const Chosen = [...Declared].filter(Name => !Imported.has(Name) && !Props.has(Name) && !Globals.has(Name) && !Browser.has(Name));
+  const Texts = TemplateTexts(Source);
+  const Chosen = [...Declared].filter(Name => !Imported.has(Name) && !Props.has(Name) && !Globals.has(Name) && !Browser.has(Name) && !Texts.has(Name));
   const Count = Name => (Code.match(new RegExp(`(?<![\\w$])${Name.replace(/\$/g, '\\$')}(?![\\w$])`, 'g')) || []).length;
   return Chosen.map(Name => [Name, Count(Name)]).sort((A, B) => B[1] - A[1] || (A[0] < B[0] ? -1 : 1)).map(Pair => Pair[0]);
 }
@@ -198,7 +262,7 @@ function Compress(Label, Bundled) {
 function Page(Label, Bundled, Template, Target, Lexicon) {
   const Result = Compress(Label, Bundled);
   Syntax(Result.Code, '.mjs', Label);
-  const Html = Read(Template).replace('<!--Script-->', () => `<script type="module">\n${Result.Code}\n</script>`);
+  const Html = Read(Template).replace('<!--Icon-->', () => Icon).replace('<!--Mark-->', () => MarkSvg).replace('<!--Script-->', () => `<script type="module">\n${Result.Code}\n</script>`);
   fs.writeFileSync(path.join(Out, Target), Html);
   Lexicon[Label] = buildLexicon(Result.Map);
   return Result.Map.size;
@@ -220,9 +284,10 @@ function Build(ConfigText) {
   Say('Main + Bridge done');
   Report.push(['Capture.html', Page('Capture', Bundle(path.join(App, 'A1/Capture.js'), ''), path.join(App, 'A1/Capture.html'), 'Capture.html', Lexicon)]);
   Report.push(['Setup.html', Page('Setup', Bundle(path.join(App, 'A2/Setup.js'), ''), path.join(App, 'A2/Setup.html'), 'Setup.html', Lexicon)]);
-  const Viewer = Bundle(path.join(App, 'A2/Viewer.js'), ConfigText); Viewer.Config = ConfigText;
+  const Viewer = Bundle(path.join(App, 'A2/Viewer.js'), '');
   Report.push(['Viewer.html', Page('Viewer', Viewer, path.join(App, 'A2/Viewer.html'), 'Viewer.html', Lexicon)]);
   fs.writeFileSync(path.join(Out, 'Lexicon.json'), JSON.stringify(Lexicon, null, 2));
+  fs.copyFileSync(path.join(App, 'Rules.json'), path.join(Out, 'Rules.json'));
 
   Say('pages done');
   if (process.platform === 'darwin') {
@@ -241,7 +306,7 @@ function Build(ConfigText) {
 // ---- run ----
 const ConfigText = Config();
 Say('config read');
-for (const File of Walk(Here).filter(Name => Name.endsWith('.js') && !Name.includes(`${path.sep}Build${path.sep}`))) Syntax(Read(File), File.endsWith('Bridge.js') ? '.cjs' : '.mjs', Rel(File));
+for (const File of Walk(Here).filter(Name => Name.endsWith('.js') && !Name.includes(`${path.sep}Build${path.sep}`))) { Syntax(Read(File), File.endsWith('Bridge.js') ? '.cjs' : '.mjs', Rel(File)); if (File.startsWith(App) && !File.endsWith('Config.Example.js')) Lint(File, Read(File)); }
 Say('syntax ok');
 if (Mode !== 'seal') Verify();
 Say('hashes checked');

@@ -3,8 +3,23 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/fireba
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, signOut } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 import { getDatabase, ref as dref, set as dset, onChildAdded, onChildChanged, onValue } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
 import { Unpack } from '../Uasm.js';
+import { Loading } from './Loading.js';
 
-const app = initializeApp(ArcConfig);
+// the Firebase project comes from the file itself: the Arc app writes it in when it saves this file
+let config = null;
+try { config = JSON.parse(document.getElementById('arc-config').textContent); } catch {}
+const splash = Loading(config ? config.projectId : '');
+splash.Step(0.15);
+let booting = true;
+const settle = () => { if (booting) { booting = false; splash.Step(1); splash.Finish(); } };
+if (!config) {
+  document.getElementById('msg').textContent = 'This file has no Firebase project in it. Save a fresh Arc.html from the Arc app on your computer.';
+  document.getElementById('form').hidden = true;
+  settle();
+  throw new Error('no Firebase project in this file');
+}
+
+const app = initializeApp(config);
 const auth = getAuth(app), rdb = getDatabase(app);
 const $ = id => document.getElementById(id);
 const screen = $('screen'), sx = screen.getContext('2d', { alpha: false }), hud = $('hud'), msg = $('msg'), stat = $('stat'), form = $('form'), bar = $('bar'), devs = $('devs');
@@ -72,6 +87,7 @@ async function connect(target, name) {
   while (!mine.dead) {
     const streamed = await session(mine, name);
     if (mine.dead) return;
+    if (!streamed) settle();                                                           // the first try failed: show the card and its status instead of the splash
     tries = streamed ? 0 : tries + 1;
     setStat('busy', 'Reconnecting');
     if (!live) say(`Waiting for ${name}…`);
@@ -120,7 +136,7 @@ function session(mine, name) {
       if (latest) {
         if (screen.width !== latest.displayWidth || screen.height !== latest.displayHeight) { screen.width = latest.displayWidth; screen.height = latest.displayHeight; }
         sx.drawImage(latest, 0, 0); latest.close(); latest = null; shown++;
-        if (!live) { live = true; streamed = true; screen.style.display = 'block'; hud.classList.add('hidden'); screen.focus(); wake(); }
+        if (!live) { live = true; streamed = true; screen.style.display = 'block'; hud.classList.add('hidden'); screen.focus(); wake(); settle(); }
       }
       raf = requestAnimationFrame(paint);
     }
@@ -143,6 +159,7 @@ function session(mine, name) {
     }
 
     function attach() {
+      if (booting) splash.Step(0.85);
       say(`Starting ${name}…`);
       makeDecoder();
       const vref = dref(rdb, `rooms/${room}/v`);
@@ -166,7 +183,7 @@ function session(mine, name) {
     let up = true;
     offs.push(onValue(dref(rdb, '.info/connected'), snap => { const now = snap.val() === true; if (up && !now) setStat('busy', 'Offline'); if (!up && now) end(); up = now; }));
     timers.push(setTimeout(() => { if (!epoch) end(); }, WelcomeWait));
-    dset(dref(rdb, `rooms/${room}/hello`), { sid, nonce, key: keyReq, t: Date.now() }).catch(() => end());
+    dset(dref(rdb, `rooms/${room}/hello`), { sid, nonce, key: keyReq, t: Date.now() }).then(() => { if (booting) splash.Step(0.7); }).catch(() => end());
   });
 }
 
@@ -195,14 +212,16 @@ const renderDevices = snap => {
   say(ids.length ? 'Choose a computer.' : 'No computers yet. Open Arc on one and sign in there.', ids.length ? 'ok' : 'busy');
   let lastId = '';
   try { lastId = localStorage.getItem('arc-last') || ''; } catch {}
+  if (booting) splash.Step(0.6);
   if (!wantBack && lastId && all[lastId]) connect(`${user.uid}/${lastId}`, all[lastId].name);   // a reload picks up where it left off
+  else settle();
 };
 function gate() {
   devOff?.(); devOff = null;
-  if (!user) { disconnect(); say('Sign in to see your computers.'); return showForm(); }
+  if (!user) { disconnect(); say('Sign in to see your computers.'); settle(); return showForm(); }
   form.hidden = true; $('out').hidden = false;
-  if (!user.emailVerified) { devs.hidden = true; $('again').hidden = false; return say(`We sent a verification link to ${user.email}. Open it, then come back.`); }
+  if (!user.emailVerified) { devs.hidden = true; $('again').hidden = false; settle(); return say(`We sent a verification link to ${user.email}. Open it, then come back.`); }
   $('again').hidden = true; devs.hidden = false;
   devOff = onValue(dref(rdb, `devices/${user.uid}`), renderDevices);
 }
-onAuthStateChanged(auth, u => { const same = user && u && user.uid === u.uid; user = u; if (!same) gate(); });
+onAuthStateChanged(auth, u => { const same = user && u && user.uid === u.uid; user = u; if (u && booting) splash.Step(0.4); if (!same) gate(); });

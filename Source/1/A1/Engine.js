@@ -1,9 +1,13 @@
 // Arc 1 Engine: the Electron main process. It establishes this computer (account, device, permissions), then relays the screen.
 import { app, BrowserWindow, ipcMain, dialog, session, desktopCapturer, systemPreferences, shell } from 'electron';
 import os from 'node:os';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { Link, Connect } from './Engine/Firebase.js';
 import { Ready, Current, SignIn, SignUp, Resend, Refresh, Leave, Describe } from './Engine/Account.js';
+import { Load, Save, Forget, Parse, Complete, Pages } from './Engine/Project.js';
+import { Checks } from './Engine/Checks.js';
 import { Device, Presence } from './Engine/Device.js';
 import { Frames } from './Engine/Frames.js';
 import { Heartbeat } from './Engine/Heartbeat.js';
@@ -15,6 +19,8 @@ import { Export } from './Engine/Export.js';
 const Here = path.dirname(fileURLToPath(import.meta.url));
 const Helpers = app.isPackaged ? process.resourcesPath : Here;
 const Id = Device();
+const Saved = Load();
+if (Saved) Connect(Saved);
 const Mac = process.platform === 'darwin';
 const Log = function () { console.log.apply(console, [new Date().toISOString().slice(11, 19)].concat(Array.prototype.slice.call(arguments))); };
 
@@ -25,7 +31,7 @@ const Trusted = () => Mac ? systemPreferences.isTrustedAccessibilityClient(false
 
 function State() {
   const User = Current();
-  return { email: User ? User.email : null, verified: !!(User && User.emailVerified), name: os.hostname().replace(/\.local$/, ''), screen: Screen(), keys: Trusted(), streaming: !!Run, viewer: Run ? Run.Beat.Who() : null, quality: Run ? Run.Quality.Now().kbps : null, mac: Mac };
+  return { project: Link.Config ? { id: Link.Config.projectId, databaseURL: Link.Config.databaseURL, built: !!globalThis.ArcConfig } : null, email: User ? User.email : null, verified: !!(User && User.emailVerified), name: os.hostname().replace(/\.local$/, ''), screen: Screen(), keys: Trusted(), streaming: !!Run, viewer: Run ? Run.Beat.Who() : null, quality: Run ? Run.Quality.Now().kbps : null, mac: Mac };
 }
 
 function Open(Page, Options) {
@@ -44,7 +50,7 @@ async function Stop() {
 
 async function Begin() {
   const User = Current();
-  if (Run || !User || !User.emailVerified || !Screen()) return;
+  if (Run || !Link.Auth || !User || !User.emailVerified || !Screen()) return;
   const Code = `${User.uid}/${Id}`;                                  // rooms/<uid>/<device>
   const Frame = Frames(Code), Pad = Keys(Helpers);
   let NeedKey = true, Paced = true, Last = Date.now(), Seq = Date.now();
@@ -94,6 +100,25 @@ async function Begin() {
 function Wire() {
   const Answer = async Work => { try { await Work(); } catch (Failure) { return Object.assign(State(), { error: Describe(Failure) }); } return State(); };
   ipcMain.handle('state', () => State());
+  ipcMain.handle('config:save', (Event, Text) => {
+    const Made = Complete(Parse(Text));
+    if (Made.Problems.length) return Object.assign(State(), { error: `That is not a full web app config: ${Made.Problems.join(', ')}.` });
+    if (Link.App) return Object.assign(State(), { error: 'A project is already in use. Use Change project first.' });
+    Save(Made.Config); Connect(Made.Config);
+    return State();
+  });
+  ipcMain.handle('config:change', async () => { await Stop(); Forget(); app.relaunch(); app.exit(0); });
+  ipcMain.handle('check', async (Event, Name) => {
+    if (!Link.Config) return { ok: false, note: 'Choose a Firebase project first', ms: 0 };
+    const Run_ = Checks(Id)[Name];
+    return Run_ ? Run_() : { ok: false, note: `No such test: ${Name}`, ms: 0 };
+  });
+  ipcMain.handle('pages', () => (Link.Config ? Pages(Link.Config) : null));
+  ipcMain.handle('open', (Event, Address) => {
+    const Url = new URL(String(Address));
+    if (Url.protocol === 'https:' && Url.hostname === 'console.firebase.google.com') shell.openExternal(Url.href);
+  });
+  ipcMain.handle('rules', () => fs.readFileSync(path.join(Here, 'Rules.json'), 'utf8'));
   ipcMain.handle('signin', (Event, Email, Password) => Answer(async () => { await SignIn(Email, Password); await Begin(); }));
   ipcMain.handle('signup', (Event, Email, Password) => Answer(() => SignUp(Email, Password)));
   ipcMain.handle('resend', () => Answer(() => Resend()));
@@ -109,7 +134,7 @@ function Wire() {
   ipcMain.handle('export', async () => {
     const Pick = await dialog.showSaveDialog(Window, { defaultPath: path.join(app.getPath('downloads'), 'Arc.html'), filters: [{ name: 'HTML', extensions: ['html'] }] });
     if (Pick.canceled || !Pick.filePath) return { saved: null };
-    Export(path.join(Here, 'Viewer.html'), Pick.filePath);
+    Export(path.join(Here, 'Viewer.html'), Pick.filePath, Link.Config);
     shell.showItemInFolder(Pick.filePath);
     return { saved: Pick.filePath };
   });
@@ -127,7 +152,6 @@ async function Launch() {
   Wire();
   Window = Open('Setup.html', { width: 440, height: 680, resizable: false, title: 'Arc 1', backgroundColor: '#000000' });
   Window.on('close', Event => { if (Mac && !Quitting) { Event.preventDefault(); Window.hide(); } });
-  await Ready();
-  await Begin();
+  if (Link.Auth) { await Ready(); await Begin(); }
 }
 app.whenReady().then(Launch);

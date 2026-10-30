@@ -5,7 +5,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { app } from 'electron';
 import { ref, set } from 'firebase/database';
-import { Database } from './Firebase.js';
+import { Link } from './Firebase.js';
 
 const Memory = path.join(app.getPath('userData'), 'Device.txt');
 
@@ -18,7 +18,7 @@ export function Device() {
 
 // refreshed every 20 s; the viewer shows a device as online while t is under a minute old
 export function Presence(User, Id) {
-  const Entry = ref(Database, `devices/${User.uid}/${Id}`);
+  const Entry = ref(Link.Database, `devices/${User.uid}/${Id}`);
   const Beat = () => set(Entry, { name: os.hostname().replace(/\.local$/, '').slice(0, 60), t: Date.now() }).catch(() => {});
   Beat();
   return setInterval(Beat, 20000);

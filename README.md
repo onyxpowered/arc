@@ -8,12 +8,15 @@ Computer:  Arc app (Electron: Chromium capture + WebCodecs H.264, native input) 
 
 ## Set up your own Firebase project (free)
 
-1. Create a project at console.firebase.google.com and add a web app.
-2. Build > Authentication > Get started > enable **Email/Password**.
-3. Build > Realtime Database > Create database, then deploy the rules: `cd Source/1 && firebase use --add && firebase deploy --only database`.
-4. Copy the web config into `Source/1/Config.js` (start from `Config.Example.js`; it is never committed).
+The Arc app walks you through this, and tests each step:
 
-This runs on the free Spark plan.
+1. In the [Firebase console](https://console.firebase.google.com/), create a project, then add a **Web app** under Project settings and copy its config.
+2. Open Arc and paste the config. Arc finds the project and checks it.
+3. **Authentication**: press Get started, then turn on **Email/Password** under Sign-in method. Arc tells you when it is on.
+4. **Realtime Database**: create one, then paste the rules Arc shows you (it has a Copy button) into the Rules tab and Publish.
+5. Sign in, verify your email, allow screen recording, and run **Tests** (project, authentication, database, rules, ping, capture, encoder, input) at any time.
+
+This runs on the free Spark plan. Nothing about your project is baked into Arc; the app keeps it in its own data folder, and writes it into the `Arc.html` it saves.
 
 ## Build the apps
 
@@ -21,22 +24,20 @@ Requires Node 18+. On macOS, Xcode command line tools (`swiftc`) build the input
 
 ```sh
 cd Source/1
-cp Config.Example.js Config.js   # then fill it in
 npm install
 node ../Source.js                # verify hashes, then compress into Source/1/Build
 node ../Source.js pack           # also package Software/Arc.dmg and Software/Arc.exe
 ```
 
-`Source.js` first checks every file against `Source/Hashes.json` and validates the tree; after you edit anything, run `node Source/Source.js seal`. It then compresses the code with the bundled Compressor (identifiers renamed to codes made only from A, R and C) and writes the app into `Source/1/Build`. The packaged apps are unsigned, and are not committed because they exceed GitHub's file size limit.
+`Source.js` first checks every file against `Source/Hashes.json` and validates the tree; after you edit anything, run `node Source/Source.js seal`. It then compresses the code with the bundled Compressor (identifiers renamed to codes made only from A, R and C) and writes the app into `Source/1/Build`. To build a default Firebase project into your copy, copy `Config.Example.js` to `Config.js` first (it is never committed); otherwise the app asks for a project on first run. The packaged apps are unsigned, and are not committed because they exceed GitHub's file size limit.
 
 To try the app without packaging, after a build: `node_modules/.bin/electron Build`.
 
 ## Use it
 
-1. Open Arc on the computer you want to reach.
-2. Create an account (or sign in) and open the verification link Firebase emails you.
-3. Allow screen recording and, on macOS, mouse and keyboard control.
-4. Press **Save Arc.html**. Open that file in any browser, sign in, and pick the computer.
+1. Open Arc on the computer you want to reach and follow the setup steps above.
+2. Allow screen recording and, on macOS, mouse and keyboard control.
+3. Press **Save Arc.html**. Open that file in any browser, sign in, and pick the computer.
 
 ## Layout
 
@@ -48,7 +49,10 @@ Source/
   Compressor/    the identifier compressor
   1/             Arc 1
     A1/          the computer: Engine.js (Electron main) + Engine/ (Firebase, Account, Device, Frames, Heartbeat, Input, Info, Keys, Export), Capture, Bridge, Keys.swift
-    A2/          connections: Setup (app window) and Viewer (the exported Arc.html)
+    A2/          connections: Setup (app window), Viewer (the exported Arc.html) and Loading (the loading screen both share)
+    Mark.js      the logo as path data; Source.js builds the favicon (light and dark) and in-page logo from it
+    Qr.js        the QR encoder behind the loading screen's Console link
+    Uasm.js      the UASM codec
 ```
 
 ## UASM
