@@ -50,6 +50,8 @@ Source/
   1/             Arc 1
     A1/          the computer: Engine.js (Electron main) + Engine/ (Firebase, Account, Device, Frames, Heartbeat, Input, Info, Keys, Export), Capture, Bridge, Keys.swift
     A2/          connections: Setup (app window), Viewer (the exported Arc.html) and Loading (the loading screen both share)
+    A2/Style.css, Arc.css, Tip.js   the status site's design (Geist, tokens, buttons, cards, notes, popup), copied verbatim, plus Arc's few additions
+    Brand/       Icon.svg and the PNGs the app icons are made from
     Mark.js      the logo as path data; Source.js builds the favicon (light and dark) and in-page logo from it
     Qr.js        the QR encoder behind the loading screen's Console link
     Uasm.js      the UASM codec

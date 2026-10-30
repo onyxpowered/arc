@@ -22,6 +22,7 @@ const Id = Device();
 const Saved = Load();
 if (Saved) Connect(Saved);
 const Mac = process.platform === 'darwin';
+const Face = path.join(Here, Mac ? 'Mac.png' : 'Windows.png');   // the window icon (the packaged app carries its own)
 const Log = function () { console.log.apply(console, [new Date().toISOString().slice(11, 19)].concat(Array.prototype.slice.call(arguments))); };
 
 let Window = null, Capturer = null, Run = null, Quitting = false;
@@ -35,7 +36,7 @@ function State() {
 }
 
 function Open(Page, Options) {
-  const Made = new BrowserWindow(Object.assign({ webPreferences: { preload: path.join(Here, 'Bridge.js'), sandbox: true, contextIsolation: true, backgroundThrottling: false } }, Options));
+  const Made = new BrowserWindow(Object.assign({ icon: Face, webPreferences: { preload: path.join(Here, 'Bridge.js'), sandbox: true, contextIsolation: true, backgroundThrottling: false } }, Options));
   Made.loadFile(path.join(Here, Page));
   return Made;
 }
@@ -154,4 +155,4 @@ async function Launch() {
   Window.on('close', Event => { if (Mac && !Quitting) { Event.preventDefault(); Window.hide(); } });
   if (Link.Auth) { await Ready(); await Begin(); }
 }
-app.whenReady().then(Launch);
+app.whenReady().then(() => { if (Mac && app.dock && !app.isPackaged) app.dock.setIcon(Face); return Launch(); });

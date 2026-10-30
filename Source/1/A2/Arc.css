@@ -1,0 +1,80 @@
+/* Arc 1 additions: the few components the status site does not have. Every value here is one the site already uses (same tokens, radii,
+   borders, type sizes, easing); buttons and inputs repeat the Contact button's declarations, notes repeat the popup note's. */
+/* Gravity UI icons (@gravity-ui/icons 2.23.0, MIT, YANDEX LLC): the same release and mask format as the status site's icons.css, plus the few more Arc needs. */
+.gi-arrow-left { --gi: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 16 16'%3E%3Cpath fill='%23000' fill-rule='evenodd' d='M14.75 8a.75.75 0 0 1-.75.75H3.81l2.72 2.72a.75.75 0 1 1-1.06 1.06l-4-4a.75.75 0 0 1 0-1.06l4-4a.75.75 0 0 1 1.06 1.06L3.81 7.25H14a.75.75 0 0 1 .75.75' clip-rule='evenodd'/%3E%3C/svg%3E"); }
+.gi-arrows-expand { --gi: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 16 16'%3E%3Cpath fill='%23000' d='M7.526 1.168a.75.75 0 0 1 1.004.052l1.75 1.75.052.056a.75.75 0 0 1-1.056 1.056L9.22 4.03l-.47-.47v3.69h3.69l-.47-.47a.75.75 0 0 1 1.06-1.06l1.75 1.75.052.056a.75.75 0 0 1-.052 1.004l-1.75 1.75-.056.052a.75.75 0 0 1-1.056-1.056l.052-.056.47-.47H8.75v3.69l.47-.47a.75.75 0 1 1 1.06 1.06l-1.75 1.75-.056.052a.75.75 0 0 1-1.004-.052l-1.75-1.75-.052-.056a.75.75 0 0 1 1.056-1.056l.056.052.47.47V8.75H3.56l.47.47a.75.75 0 1 1-1.06 1.06L1.22 8.53l-.052-.056A.75.75 0 0 1 1.22 7.47l1.75-1.75.056-.052a.75.75 0 0 1 1.056 1.056l-.052.056-.47.47h3.69V3.56l-.47.47a.75.75 0 1 1-1.06-1.06l1.75-1.75z'/%3E%3C/svg%3E"); }
+.gi-arrow-up-right-from-square { --gi: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 16 16'%3E%3Cpath fill='%23000' fill-rule='evenodd' d='M10 1.5A.75.75 0 0 0 10 3h1.94L6.97 7.97a.75.75 0 0 0 1.06 1.06L13 4.06V6a.75.75 0 0 0 1.5 0V2.25a.75.75 0 0 0-.75-.75zM7.5 3.25a.75.75 0 0 0-.75-.75H4.5a3 3 0 0 0-3 3v6a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V9.25a.75.75 0 0 0-1.5 0v2.25a1.5 1.5 0 0 1-1.5 1.5h-6A1.5 1.5 0 0 1 3 11.5v-6A1.5 1.5 0 0 1 4.5 4h2.25a.75.75 0 0 0 .75-.75' clip-rule='evenodd'/%3E%3C/svg%3E"); }
+.gi-copy { --gi: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 16 16'%3E%3Cpath fill='%23000' fill-rule='evenodd' d='M12 2.5H8A1.5 1.5 0 0 0 6.5 4v1H8a3 3 0 0 1 3 3v1.5h1A1.5 1.5 0 0 0 13.5 8V4A1.5 1.5 0 0 0 12 2.5M11 11h1a3 3 0 0 0 3-3V4a3 3 0 0 0-3-3H8a3 3 0 0 0-3 3v1H4a3 3 0 0 0-3 3v4a3 3 0 0 0 3 3h4a3 3 0 0 0 3-3zM4 6.5h4A1.5 1.5 0 0 1 9.5 8v4A1.5 1.5 0 0 1 8 13.5H4A1.5 1.5 0 0 1 2.5 12V8A1.5 1.5 0 0 1 4 6.5' clip-rule='evenodd'/%3E%3C/svg%3E"); }
+.gi-arrow-rotate-right { --gi: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 16 16'%3E%3Cpath fill='%23000' fill-rule='evenodd' d='M8 1.5a6.5 6.5 0 1 0 6.445 7.348.75.75 0 1 0-1.487-.194A5.001 5.001 0 1 1 11.57 4.5h-1.32a.75.75 0 0 0 0 1.5h3a.75.75 0 0 0 .75-.75v-3a.75.75 0 0 0-1.5 0v1.06A6.48 6.48 0 0 0 8 1.5' clip-rule='evenodd'/%3E%3C/svg%3E"); }
+.gi-display { --gi: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 16 16'%3E%3Cpath fill='%23000' fill-rule='evenodd' d='M12 3H4a1.5 1.5 0 0 0-1.5 1.5v4A1.5 1.5 0 0 0 4 10h8a1.5 1.5 0 0 0 1.5-1.5v-4A1.5 1.5 0 0 0 12 3M4 1.5a3 3 0 0 0-3 3v4a3 3 0 0 0 3 3h3.25V13h-2.5a.75.75 0 0 0 0 1.5h6.5a.75.75 0 0 0 0-1.5h-2.5v-1.5H12a3 3 0 0 0 3-3v-4a3 3 0 0 0-3-3z' clip-rule='evenodd'/%3E%3C/svg%3E"); }
+.gi-arrow-right-from-square { --gi: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 16 16'%3E%3Cpath fill='%23000' fill-rule='evenodd' d='M14.78 7.47a.75.75 0 0 1 0 1.06l-2.5 2.5a.75.75 0 1 1-1.06-1.06l1.22-1.22H4.75a.75.75 0 0 1 0-1.5h7.69l-1.22-1.22a.75.75 0 0 1 1.06-1.06zM9.5 4.25a.75.75 0 0 1-1.5 0V4a1.5 1.5 0 0 0-1.5-1.5H4A1.5 1.5 0 0 0 2.5 4v8A1.5 1.5 0 0 0 4 13.5h2.5A1.5 1.5 0 0 0 8 12v-.25a.75.75 0 0 1 1.5 0V12a3 3 0 0 1-3 3H4a3 3 0 0 1-3-3V4a3 3 0 0 1 3-3h2.5a3 3 0 0 1 3 3z' clip-rule='evenodd'/%3E%3C/svg%3E"); }
+.gi-xmark { --gi: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 16 16'%3E%3Cpath fill='%23000' fill-rule='evenodd' d='M3.47 3.47a.75.75 0 0 1 1.06 0L8 6.94l3.47-3.47a.75.75 0 1 1 1.06 1.06L9.06 8l3.47 3.47a.75.75 0 1 1-1.06 1.06L8 9.06l-3.47 3.47a.75.75 0 0 1-1.06-1.06L6.94 8 3.47 4.53a.75.75 0 0 1 0-1.06' clip-rule='evenodd'/%3E%3C/svg%3E"); }
+
+html, body { min-height: 100%; }
+[hidden] { display: none !important; }
+
+/* buttons: the Contact button, declaration for declaration */
+.arc-button { display: inline-block; appearance: none; cursor: pointer; border-radius: 6px; color: var(--ds-gray-1000); background-color: var(--ds-background-100); font-size: 14px; font-weight: 500; padding: 6px 11px; border: 1px solid var(--ds-gray-400); text-shadow: none; text-transform: lowercase; text-decoration: none; letter-spacing: unset; line-height: 1.4; box-shadow: none; font-family: 'Geist', sans-serif; transition: background-color .25s var(--ease), border-color .25s var(--ease), color .25s var(--ease); }
+.arc-button::first-letter { text-transform: uppercase; }
+.arc-button:hover:not(:disabled) { background-color: color-mix(in oklab, var(--ds-gray-1000) 7%, var(--ds-background-100)); border-color: var(--ds-gray-500); }
+.arc-button:active:not(:disabled) { background-color: color-mix(in oklab, var(--ds-gray-1000) 3%, var(--ds-background-100)); }
+.arc-button:focus-visible { outline: 5px auto -webkit-focus-ring-color; outline-offset: 3px; }
+.arc-button:disabled { color: var(--ds-gray-900); cursor: default; }
+.arc-button.small { padding: 3px 9px; font-size: 13px; }
+.arc-button.icon { display: inline-flex; align-items: center; justify-content: center; padding: 6px; text-transform: none; }
+.arc-button.icon .gi { vertical-align: 0; }
+.arc-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.arc-actions > .arc-button:not(.small) { flex: 1 1 auto; text-align: center; }
+
+/* inputs: the same border, radius, padding and type as the button */
+input.arc-input, textarea.arc-input { display: block; width: 100%; max-width: none; height: auto; box-sizing: border-box; border-radius: 6px; color: var(--ds-gray-1000); background-color: var(--ds-background-100); font-size: 14px; font-weight: 500; padding: 6px 11px; border: 1px solid var(--ds-gray-400); box-shadow: none; line-height: 1.4; font-family: 'Geist', sans-serif; outline: none; user-select: text; transition: background-color .25s var(--ease), border-color .25s var(--ease); }
+input.arc-input::placeholder, textarea.arc-input::placeholder { color: var(--ds-gray-900); font-weight: 400; }
+input.arc-input:hover, textarea.arc-input:hover { border-color: var(--ds-gray-500); }
+input.arc-input:focus, textarea.arc-input:focus { border-color: var(--ds-gray-1000); }
+textarea.arc-input { min-height: 132px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 400; line-height: 1.5; padding: 9px 11px; }
+
+/* card: the popup card */
+.arc-card { padding: 15px 17px 17px; background: var(--ds-background-100); border: 1px solid var(--ds-gray-400); border-radius: 6px; box-shadow: none; color: var(--ds-gray-1000); font-size: 14px; font-weight: 500; }
+.arc-card > * + * { margin-top: 12px; }
+.arc-pre { margin: 0; max-height: 150px; overflow: auto; padding: 9px 11px; background: var(--ds-background-200); border: 1px solid var(--ds-gray-400); border-radius: 6px; font: 400 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--ds-gray-900); user-select: text; }
+
+/* notes: the popup's tinted note, usable in the page */
+.arc-note { --tone: var(--ds-blue-900); display: flex; align-items: center; gap: 10px; height: auto; margin: 12px 0 0; padding: 9px 12px; border: 1px solid color-mix(in oklab, var(--tone) 30%, transparent); border-radius: 4px; background: color-mix(in oklab, var(--tone) 11%, transparent); color: var(--ds-gray-1000); font-size: 14px; font-weight: 500; line-height: 20px; }
+.arc-note .gi { color: var(--tone); vertical-align: 0; }
+.arc-note.tone-error { --tone: var(--ds-red-900); } .arc-note.tone-warning { --tone: var(--ds-amber-900); } .arc-note.tone-ok { --tone: var(--ds-green-900); } .arc-note.tone-info { --tone: var(--ds-blue-900); }
+
+/* rows: the status site's component rows, with a body that opens under the name */
+.component-container .name { cursor: default; }
+.component-container.arc-step .name { cursor: pointer; }
+.component-container.arc-step.locked .name { cursor: default; }
+.component-inner-container .arc-body { display: none; clear: both; padding-top: 16px; font-size: 14px; font-weight: 400; line-height: 20px; color: var(--ds-gray-900); }
+.component-container.open .arc-body { display: block; animation: arc-in .4s var(--ease) both; }
+.arc-body > * + *, .arc-body > div:not(.arc-actions) > * + * { margin-top: 12px; }
+.arc-body p { margin: 0; color: var(--ds-gray-900); }
+.arc-body p b { color: var(--ds-gray-1000); font-weight: 500; }
+.arc-body ol { margin: 0; padding-left: 18px; list-style: decimal outside; color: var(--ds-gray-900); }
+.arc-body li { display: list-item; }
+.arc-body li + li { margin-top: 2px; }
+.arc-sub { clear: both; padding-top: 4px; font-size: 14px; font-weight: 400; line-height: 20px; color: var(--ds-gray-900); overflow-wrap: anywhere; }
+@keyframes arc-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .component-container.open .arc-body { animation: none; } }
+h4.arc-title { margin: 40px 0 0; }
+.component-container.arc-pick { cursor: pointer; }
+.component-container.arc-pick:hover .name { text-decoration: underline; text-decoration-color: var(--ds-gray-400); text-underline-offset: 3px; }
+.component-container .name, .component-container .component-status { transition: color .4s var(--ease), text-decoration-color .2s var(--ease); }
+
+/* status words keep the site's colors; waiting rows are gray like its scheduled-offline rows */
+.component-inner-container.status-offline .component-status { color: var(--ds-gray-900, #6b7280); }
+
+/* the viewer's floating bar over the stream */
+#screen { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; display: none; cursor: default; }
+#bar { position: fixed; z-index: 2; top: 12px; left: 12px; right: 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px; pointer-events: none; transition: opacity .3s var(--ease); }
+body:not(.streaming) #bar { display: none; }
+#bar.faded { opacity: 0; }
+#bar > * { pointer-events: auto; }
+#bar .arc-group { display: flex; align-items: center; gap: 8px; }
+.arc-pill { --tone: var(--ds-gray-700); display: inline-flex; align-items: center; gap: 8px; padding: 6px 11px; background: var(--ds-background-100); border: 1px solid var(--ds-gray-400); border-radius: 6px; color: var(--ds-gray-1000); font-size: 14px; font-weight: 500; line-height: 1.4; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.arc-pill::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--tone); flex: none; transition: background-color .4s var(--ease); }
+.arc-pill.ok { --tone: var(--ds-blue-900); } .arc-pill.busy { --tone: var(--ds-amber-900); } .arc-pill.err { --tone: var(--ds-red-900); }
+#hud.hidden { display: none; }
+@media (prefers-reduced-motion: reduce) { #bar { transition-duration: .01ms; } }

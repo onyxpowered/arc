@@ -4,6 +4,7 @@ import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWith
 import { getDatabase, ref as dref, set as dset, onChildAdded, onChildChanged, onValue } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
 import { Unpack } from '../Uasm.js';
 import { Loading } from './Loading.js';
+import { Tip } from './Tip.js';
 
 // the Firebase project comes from the file itself: the Arc app writes it in when it saves this file
 let config = null;
@@ -29,9 +30,12 @@ const sleep = ms => new Promise(done => setTimeout(done, ms));
 
 let room = '', user = null, devOff = null, live = false, link = null, wantBack = false;   // room = <uid>/<device>
 
-const setStat = (kind, text) => { $('pill').className = 'pill ' + kind; stat.textContent = text; };
-const say = (t, kind = 'busy') => { msg.textContent = t; $('state').className = 'status ' + kind; hud.classList.remove('hidden'); };
+const setStat = (kind, text) => { $('pill').className = 'arc-pill ' + kind; stat.textContent = text; };
+// the banner is the status site's: blue when fine, amber while working, red when something is wrong
+const say = (t, kind = 'busy') => { msg.textContent = t; $('state').className = 'page-status ' + (kind === 'ok' ? 'status-none' : kind === 'err' ? 'status-critical' : 'status-minor'); hud.classList.remove('hidden'); };
 const showForm = () => { form.hidden = false; devs.hidden = true; $('again').hidden = true; $('out').hidden = true; $('email').focus(); };
+const hint = Tip();
+hint.Bind($('bar'), '[aria-label]', Button => ({ Title: Button.getAttribute('aria-label') }));
 const AuthErrors = { 'auth/invalid-credential': 'Wrong email or password.', 'auth/email-already-in-use': 'That email already has an account. Sign in instead.', 'auth/weak-password': 'Use a password of at least 6 characters.', 'auth/invalid-email': 'That email does not look right.', 'auth/too-many-requests': 'Too many tries. Wait a moment.', 'auth/operation-not-allowed': 'Email/password sign-in is not enabled in this Firebase project.', 'auth/configuration-not-found': 'Authentication is not set up in this Firebase project.', 'auth/network-request-failed': 'No connection to Firebase.' };
 const fail = e => say(AuthErrors[e.code] || e.message, 'err');
 
@@ -73,7 +77,7 @@ const WelcomeWait = 7000;
 
 function disconnect() {
   if (link) { link.dead = true; link.end(); link = null; }
-  live = false; screen.style.display = 'none'; $('back').hidden = true;
+  live = false; screen.style.display = 'none'; $('back').hidden = true; document.body.classList.remove('streaming');
 }
 
 async function connect(target, name) {
@@ -136,7 +140,7 @@ function session(mine, name) {
       if (latest) {
         if (screen.width !== latest.displayWidth || screen.height !== latest.displayHeight) { screen.width = latest.displayWidth; screen.height = latest.displayHeight; }
         sx.drawImage(latest, 0, 0); latest.close(); latest = null; shown++;
-        if (!live) { live = true; streamed = true; screen.style.display = 'block'; hud.classList.add('hidden'); screen.focus(); wake(); settle(); }
+        if (!live) { live = true; streamed = true; screen.style.display = 'block'; document.body.classList.add('streaming'); hud.classList.add('hidden'); screen.focus(); wake(); settle(); }
       }
       raf = requestAnimationFrame(paint);
     }
@@ -196,18 +200,19 @@ const creds = () => [$('email').value.trim(), $('pass').value];
 form.onsubmit = async e => { e.preventDefault(); const [em, pw] = creds(); say('Signing in…'); try { await signInWithEmailAndPassword(auth, em, pw); } catch (x) { fail(x); form.hidden = false; } };
 $('make').onclick = async () => { const [em, pw] = creds(); say('Creating your account…'); try { const c = await createUserWithEmailAndPassword(auth, em, pw); await sendEmailVerification(c.user); } catch (x) { fail(x); form.hidden = false; } };
 $('again').onclick = async () => { await user.reload(); await user.getIdToken(true); gate(); };
-$('out').onclick = () => signOut(auth);
+$('out').onclick = e => { e.preventDefault(); signOut(auth); };
 
 const renderDevices = snap => {
   if (link) return;                                                                    // never draw over a live stream
   const all = snap.val() || {}, ids = Object.keys(all);
   devs.replaceChildren.apply(devs, ids.map(id => {
-    const d = all[id], on = Date.now() - d.t < 60000, b = document.createElement('button');
-    b.type = 'button'; b.className = 'dev' + (on ? ' on' : '');
-    b.innerHTML = '<i class="dot"></i><span></span><small></small>';
-    b.children[1].textContent = d.name; b.children[2].textContent = on ? 'Online' : 'Offline';
-    b.onclick = () => connect(`${user.uid}/${id}`, d.name);
-    return b;
+    const d = all[id], on = Date.now() - d.t < 60000, row = document.createElement('div');
+    row.className = 'component-container border-color arc-pick'; row.tabIndex = 0; row.setAttribute('role', 'button');
+    row.innerHTML = `<div class="component-inner-container ${on ? 'status-green' : 'status-offline'} showcased"><span class="name" role="heading" aria-level="2"></span><span class="component-status"></span></div>`;
+    row.querySelector('.name').textContent = d.name; row.querySelector('.component-status').textContent = on ? 'Online' : 'Offline';
+    const go = () => connect(`${user.uid}/${id}`, d.name);
+    row.onclick = go; row.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } };
+    return row;
   }));
   say(ids.length ? 'Choose a computer.' : 'No computers yet. Open Arc on one and sign in there.', ids.length ? 'ok' : 'busy');
   let lastId = '';

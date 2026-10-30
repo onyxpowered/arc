@@ -47,7 +47,8 @@
       "extendInfo": {
         "NSScreenCaptureUsageDescription": "Arc streams this screen to your own viewer.",
         "NSAccessibilityUsageDescription": "Arc lets your viewer use this computer's mouse and keyboard."
-      }
+      },
+      "icon": "Brand/Mac.png"
     },
     "win": {
       "target": [
@@ -59,7 +60,8 @@
         }
       ],
       "artifactName": "Arc.${ext}",
-      "signAndEditExecutable": false
+      "signAndEditExecutable": false,
+      "icon": "Brand/Windows.png"
     }
   }
 }

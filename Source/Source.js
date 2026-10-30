@@ -31,6 +31,9 @@ const Rel = File => path.relative(Here, File).split(path.sep).join('/');
 // the favicon follows light and dark mode (Chrome and Firefox read the media query inside an SVG icon)
 const FaviconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${Mark.Square}"><style>path{fill:#000}@media (prefers-color-scheme:dark){path{fill:#fff}}</style><path d="${Mark.Shape}"/></svg>`;
 const Icon = `<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,${encodeURIComponent(FaviconSvg)}">`;
+// the status site's stylesheet (Geist inlined as a data URI) plus Arc's additions, one <style> per page
+const Styles = `<style>\n${Read(path.join(App, 'A2/Style.css')).replace('url(Geist.woff2)', () => `url(data:font/woff2;base64,${fs.readFileSync(path.join(App, 'A2/Geist.woff2')).toString('base64')})`)}\n${Read(path.join(App, 'A2/Arc.css'))}\n</style>`;
+const LogoSvg = `<svg class="site-logo" role="img" aria-label="Arc" xmlns="http://www.w3.org/2000/svg" viewBox="${Mark.Square}"><path fill="currentColor" d="${Mark.Shape}"/></svg>`;
 const MarkSvg = `<svg width="22" height="20" viewBox="${Mark.Box}" aria-hidden="true"><path fill="currentColor" d="${Mark.Shape}"/></svg>`;
 
 // ---- 1. hashes ----
@@ -79,6 +82,28 @@ function Syntax(Code, Extension, Label) {
   fs.rmSync(File, { force: true });
 }
 
+// end index (just past the closing backtick) of a template literal starting at At, with ${...} expressions that may hold strings and further templates
+function SkipTemplate(Text, At) {
+  let End = At + 1;
+  while (End < Text.length && Text[End] !== '`') {
+    if (Text[End] === '\\') { End += 2; continue; }
+    if (Text[End] === '$' && Text[End + 1] === '{') {
+      let Depth = 1;
+      End += 2;
+      while (End < Text.length && Depth) {
+        const Char = Text[End];
+        if (Char === '`') { End = SkipTemplate(Text, End); continue; }
+        if (Char === '"' || Char === "'") { End++; while (End < Text.length && Text[End] !== Char) End += Text[End] === '\\' ? 2 : 1; End++; continue; }
+        if (Char === '{') Depth++; else if (Char === '}') Depth--;
+        End++;
+      }
+      continue;
+    }
+    End++;
+  }
+  return End + 1;
+}
+
 // Compressor tokenizes without knowing regex literals, so a quote or backtick inside one would hide the code after it from renaming.
 function Lint(File, Text) {
   let Prev = '';
@@ -87,7 +112,7 @@ function Lint(File, Text) {
     if (Char === '/' && Next === '/') { const End = Text.indexOf('\n', At); At = End < 0 ? Text.length : End; continue; }
     if (Char === '/' && Next === '*') { const End = Text.indexOf('*/', At + 2); At = End < 0 ? Text.length : End + 2; continue; }
     if (Char === '"' || Char === "'") { let End = At + 1; while (End < Text.length && Text[End] !== Char) End += Text[End] === '\\' ? 2 : 1; At = End + 1; Prev = 'x'; continue; }
-    if (Char === '`') { let End = At + 1; while (End < Text.length && Text[End] !== '`') End += Text[End] === '\\' ? 2 : 1; At = End + 1; Prev = 'x'; continue; }
+    if (Char === '`') { At = SkipTemplate(Text, At); Prev = 'x'; continue; }
     if (Char === '/' && (Prev === '' || '(,=:[!&|?{};+-*%<>~^'.includes(Prev))) {
       let End = At + 1, Class = false;
       while (End < Text.length && Text[End] !== '\n') {
@@ -189,7 +214,8 @@ function TemplateTexts(Text) {
           if (Part) Found.add(Part);
           Part = '';
           let Depth = 1, Stop = End + 2;
-          while (Stop < Text.length && Depth) { if (Text[Stop] === '{') Depth++; else if (Text[Stop] === '}') Depth--; Stop++; }
+          while (Stop < Text.length && Depth) { if (Text[Stop] === '`') { Stop = SkipTemplate(Text, Stop); continue; } if (Text[Stop] === '{') Depth++; else if (Text[Stop] === '}') Depth--; Stop++; }
+          TemplateTexts(Text.slice(End + 2, Stop - 1)).forEach(Inner => Found.add(Inner));   // templates inside the expression
           End = Stop; continue;
         }
         Part += Text[End]; End++;
@@ -262,7 +288,7 @@ function Compress(Label, Bundled) {
 function Page(Label, Bundled, Template, Target, Lexicon) {
   const Result = Compress(Label, Bundled);
   Syntax(Result.Code, '.mjs', Label);
-  const Html = Read(Template).replace('<!--Icon-->', () => Icon).replace('<!--Mark-->', () => MarkSvg).replace('<!--Script-->', () => `<script type="module">\n${Result.Code}\n</script>`);
+  const Html = Read(Template).replace('<!--Icon-->', () => Icon).replace('<!--Style-->', () => Styles).replace('<!--Logo-->', () => LogoSvg).replace('<!--Mark-->', () => MarkSvg).replace('<!--Script-->', () => `<script type="module">\n${Result.Code}\n</script>`);
   fs.writeFileSync(path.join(Out, Target), Html);
   Lexicon[Label] = buildLexicon(Result.Map);
   return Result.Map.size;
@@ -288,6 +314,7 @@ function Build(ConfigText) {
   Report.push(['Viewer.html', Page('Viewer', Viewer, path.join(App, 'A2/Viewer.html'), 'Viewer.html', Lexicon)]);
   fs.writeFileSync(path.join(Out, 'Lexicon.json'), JSON.stringify(Lexicon, null, 2));
   fs.copyFileSync(path.join(App, 'Rules.json'), path.join(Out, 'Rules.json'));
+  for (const Face of ['Mac.png', 'Windows.png']) fs.copyFileSync(path.join(App, 'Brand', Face), path.join(Out, Face));   // window and Dock icons
 
   Say('pages done');
   if (process.platform === 'darwin') {
