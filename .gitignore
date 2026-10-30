@@ -1,0 +1,8 @@
+node_modules/
+Source/1/A1/Capture
+Source/1/A1/Room.txt
+*.log
+.firebase/
+.DS_Store
+Source/1/Config.js
+Source/1/.firebaserc

@@ -1,0 +1,1 @@
+{ "name": "arc-1", "private": true, "type": "module", "dependencies": { "firebase": "^10.14.1" } }
