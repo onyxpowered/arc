@@ -1,1 +1,65 @@
-{ "name": "arc-1", "private": true, "type": "module", "dependencies": { "firebase": "^10.14.1" } }
+{
+  "name": "arc",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "firebase": "^10.14.1"
+  },
+  "devDependencies": {
+    "electron": "^45.1.0",
+    "electron-builder": "^26.18.0"
+  },
+  "productName": "Arc",
+  "version": "1.0.0",
+  "description": "Arc 1: your computer in any browser.",
+  "author": "onyxpowered",
+  "license": "MIT",
+  "main": "Build/Main.js",
+  "build": {
+    "appId": "com.onyxpowered.arc",
+    "productName": "Arc",
+    "directories": {
+      "output": "../../Software"
+    },
+    "files": [
+      "Build/**",
+      "package.json"
+    ],
+    "asar": true,
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "artifactName": "Arc.${ext}",
+      "category": "public.app-category.utilities",
+      "identity": null,
+      "extraResources": [
+        {
+          "from": "Build/Keys",
+          "to": "Keys"
+        }
+      ],
+      "extendInfo": {
+        "NSScreenCaptureUsageDescription": "Arc streams this screen to your own viewer.",
+        "NSAccessibilityUsageDescription": "Arc lets your viewer use this computer's mouse and keyboard."
+      }
+    },
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "Arc.${ext}",
+      "signAndEditExecutable": false
+    }
+  }
+}

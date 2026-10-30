@@ -1,0 +1,7 @@
+{
+  "name": "compressor",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Renames identifiers to short codes built from the letters of one word (1 to 25 letters) and wraps the result as a single HTML file."
+}

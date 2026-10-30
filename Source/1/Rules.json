@@ -8,9 +8,15 @@
         "$device": {
           ".write": "auth != null && auth.uid === $uid && auth.token.email_verified === true",
           ".validate": "newData.hasChildren(['name', 't']) && newData.child('name').isString() && newData.child('name').val().length < 64",
-          "name": { ".validate": true },
-          "t": { ".validate": true },
-          "$other": { ".validate": false }
+          "name": {
+            ".validate": true
+          },
+          "t": {
+            ".validate": true
+          },
+          "$other": {
+            ".validate": false
+          }
         }
       }
     },
@@ -19,15 +25,28 @@
         ".read": "auth != null && auth.uid === $uid && auth.token.email_verified === true",
         ".write": "auth != null && auth.uid === $uid && auth.token.email_verified === true",
         "$device": {
+          "hello": {
+            ".validate": "newData.hasChildren(['sid', 'nonce', 'key', 't'])"
+          },
+          "welcome": {
+            ".validate": "newData.hasChildren(['nonce', 'epoch', 't'])"
+          },
+          "hb": {
+            ".validate": "newData.hasChildren(['sid', 'epoch', 'key', 't'])"
+          },
           "v": {
-            "$slot": { ".validate": "newData.hasChildren(['s', 'k', 't', 'd']) && newData.child('d').isString() && newData.child('d').val().length < 2000000" }
+            "$slot": {
+              ".validate": "newData.hasChildren(['s', 'e', 'r', 'k', 't', 'n', 'd']) && newData.child('d').isString() && newData.child('d').val().length < 2000000"
+            }
           },
-          "hb": { ".validate": "newData.hasChildren(['sid', 'key', 't'])" },
           "in": {
-            "$slot": { ".validate": "newData.hasChildren(['sid', 's', 'e'])" }
+            "$slot": {
+              ".validate": "newData.hasChildren(['sid', 's', 'e'])"
+            }
           },
-          "info": { ".validate": true },
-          "$other": { ".validate": false }
+          "$other": {
+            ".validate": false
+          }
         }
       }
     }

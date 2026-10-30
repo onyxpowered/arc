@@ -58,7 +58,7 @@
   .ghost { height: 40px; border: 1px solid var(--border); background: transparent; color: var(--fg); border-radius: 8px; padding: 0 16px; }
   .ghost:hover { border-color: var(--border-hover); background: #111; }
   #devs { display: flex; flex-direction: column; gap: 8px; }
-  #devs[hidden], #out[hidden], #again[hidden] { display: none; }
+  #devs[hidden], #out[hidden], #again[hidden], #back[hidden] { display: none; }
   .dev { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px; text-align: left; color: var(--fg); background: #000; border: 1px solid var(--border); border-radius: 8px; }
   .dev:hover { border-color: var(--border-hover); background: #111; }
   .dev .dot { background: var(--dim); }
@@ -70,7 +70,10 @@
 <body>
 <canvas id="screen" width="1920" height="1080" tabindex="0"></canvas>
 <div id="bar">
-  <div class="pill" id="pill"><i class="dot"></i><span id="stat">Not connected</span></div>
+  <div class="right">
+    <button id="back" class="icon" type="button" aria-label="Back to your computers" title="Back" hidden>&larr;</button>
+    <div class="pill" id="pill"><i class="dot"></i><span id="stat">Not connected</span></div>
+  </div>
   <div class="right">
     <button id="fs" class="icon" type="button" aria-label="Toggle fullscreen" title="Fullscreen">
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2H2v4M10 2h4v4M6 14H2v-4M10 14h4v-4"/></svg>
@@ -83,7 +86,7 @@
       <svg width="20" height="20" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2 15 14H1z" fill="#ededed"/></svg>
       <h1>Arc 1</h1>
     </div>
-    <div class="status busy" id="state"><i class="dot"></i><p id="msg">Sign in to see your devices.</p></div>
+    <div class="status busy" id="state"><i class="dot"></i><p id="msg">Sign in to see your computers.</p></div>
     <form id="form" autocomplete="on">
       <input id="email" name="email" type="email" placeholder="Email" autocomplete="username" spellcheck="false" autocapitalize="off" aria-label="Email">
       <input id="pass" name="pass" type="password" placeholder="Password" autocomplete="current-password" aria-label="Password">
@@ -96,142 +99,6 @@
   </section>
 </main>
 
-<script src="../Config.js"></script>
-<script type="module">
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, signOut } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
-import { getDatabase, ref as dref, set as dset, get as dget, onChildAdded, onChildChanged, onValue, off } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
-
-const app = initializeApp(ArcConfig);
-const rdb = getDatabase(app);
-const $ = id => document.getElementById(id);
-const screen = $('screen'), sx = screen.getContext('2d', { alpha: false }), hud = $('hud'), msg = $('msg'), stat = $('stat'), form = $('form'), bar = $('bar'), devs = $('devs');
-const auth = getAuth(app);
-
-let room = '', user = null, devOff = null;   // room = <uid>/<device>
-const setStat = (kind, text) => { $('pill').className = 'pill ' + kind; stat.textContent = text; };
-const say = (t, kind = 'busy') => { msg.textContent = t; $('state').className = 'status ' + kind; hud.classList.remove('hidden'); };
-const showForm = () => { form.hidden = false; devs.hidden = true; $('again').hidden = true; $('out').hidden = true; $('email').focus(); };
-const AuthErrors = { 'auth/invalid-credential': 'Wrong email or password.', 'auth/email-already-in-use': 'That email already has an account. Sign in instead.', 'auth/weak-password': 'Use a password of at least 6 characters.', 'auth/invalid-email': 'That email does not look right.', 'auth/too-many-requests': 'Too many tries. Wait a moment.', 'auth/operation-not-allowed': 'Email/password sign-in is not enabled in this Firebase project.' };
-const fail = e => say(AuthErrors[e.code] || e.message, 'err');
-
-// the top bar fades while you work and returns when the pointer moves
-let fadeTimer = 0;
-const wake = () => { bar.classList.remove('faded'); clearTimeout(fadeTimer); if (hud.classList.contains('hidden')) fadeTimer = setTimeout(() => bar.classList.add('faded'), 3000); };
-addEventListener('pointermove', wake);
-$('fs').onclick = () => { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.(); };
-
-const sid = Math.random().toString(36).slice(2, 10);
-const unb64 = t => { const b = atob(t), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; };
-
-// ---- input: batched into rooms/<room>/in/<slot>, flushed ~60 times a second ----
-let evBuf = [], absPos = null, whX = 0, whY = 0, inSeq = 0, live = false;
-function flush() {
-  const e = evBuf; evBuf = [];
-  if (absPos) { e.push(absPos); absPos = null; }
-  if (whX || whY) { e.push({ t: 'w', dx: whX, dy: whY }); whX = whY = 0; }
-  if (e.length) dset(dref(rdb, `rooms/${room}/in/${inSeq % 64}`), { sid, s: inSeq++, e }).catch(() => {});
-}
-const push = o => { if (!live) return; evBuf.push(o); flush(); };
-// the canvas is object-fit: contain, so map the pointer into the letterboxed picture
-function norm(e) {
-  const W = innerWidth, H = innerHeight, ar = screen.width / screen.height;
-  let w = W, h = W / ar; if (h > H) { h = H; w = H * ar; }
-  const x0 = (W - w) / 2, y0 = (H - h) / 2;
-  return { x: Math.min(1, Math.max(0, (e.clientX - x0) / w)), y: Math.min(1, Math.max(0, (e.clientY - y0) / h)) };
-}
-addEventListener('mousemove', e => { if (live) absPos = { t: 'a', ...norm(e) }; });
-addEventListener('mousedown', e => { if (!live || hud.contains(e.target)) return; absPos = null; evBuf.push({ t: 'a', ...norm(e) }); push({ t: 'b', d: 1, b: e.button }); e.preventDefault(); screen.focus(); });
-addEventListener('mouseup', e => { if (live) push({ t: 'b', d: 0, b: e.button }); });
-addEventListener('wheel', e => { if (!live) return; const k = e.deltaMode === 1 ? 16 : 1; whX += e.deltaX * k; whY += e.deltaY * k; e.preventDefault(); }, { passive: false });
-addEventListener('contextmenu', e => e.preventDefault());
-const key = (e, d) => { if (!live) return; e.preventDefault(); if (e.repeat) { push({ t: 'k', d: 1, code: e.code }); return; } push({ t: 'k', d, code: e.code }); };
-addEventListener('keydown', e => key(e, 1), true);
-addEventListener('keyup', e => key(e, 0), true);
-addEventListener('blur', () => { if (live) push({ t: 'reset' }); });
-setInterval(() => { if (live) flush(); }, 16);
-
-// ---- video: H.264 chunks from rooms/<room>/v/<slot>, decoded with WebCodecs ----
-let stop = null;
-async function connect(target) {
-  room = target;
-  if (!('VideoDecoder' in window)) { say('This browser cannot decode video (WebCodecs missing). Use Chrome, Edge or Safari.', 'err'); return; }
-  stop?.();
-  say('Connecting…'); setStat('busy', 'Connecting'); form.hidden = true; devs.hidden = true; $('out').hidden = true; $('again').hidden = true;
-
-  const vref = dref(rdb, `rooms/${room}/v`);
-  let baseSeq = -1, lastSeq = -1, needKey = true, offset = Infinity, shown = 0, keyCounter = 0, dead = false, rxBytes = 0, lastFrameAt = 0;
-  try { const snap = (await dget(vref)).val(); if (snap) for (const k in snap) baseSeq = Math.max(baseSeq, snap[k].s); } catch {}
-  const beat = () => dset(dref(rdb, `rooms/${room}/hb`), { sid, key: keyCounter, t: Date.now() }).catch(() => {});
-  const wantKey = () => { needKey = true; keyCounter++; beat(); };
-
-  let decoder = null;
-  const makeDecoder = () => {
-    try { decoder?.close(); } catch {}
-    decoder = new VideoDecoder({
-      output: f => {
-        if (screen.width !== f.displayWidth || screen.height !== f.displayHeight) { screen.width = f.displayWidth; screen.height = f.displayHeight; }
-        sx.drawImage(f, 0, 0); f.close(); shown++; lastFrameAt = Date.now();
-        if (!live) { live = true; screen.style.display = 'block'; hud.classList.add('hidden'); screen.focus(); wake(); }
-      },
-      error: () => { makeDecoder(); wantKey(); },
-    });
-    decoder.configure({ codec: 'avc1.42002a', optimizeForLatency: true });
-  };
-  makeDecoder();
-
-  const onFrame = snap => {
-    const v = snap.val(); if (dead || !v || v.s <= baseSeq || v.s <= lastSeq) return;
-    lastSeq = v.s; rxBytes += v.d.length * 0.75; const isKey = v.k === 1, now = Date.now();
-    offset = Math.min(offset, now - v.t);
-    if (needKey && !isKey) return;
-    if (!isKey && now - v.t - offset > 900) { wantKey(); return; } // fell behind: jump to the next keyframe instead of lagging
-    if (isKey) needKey = false;
-    try { decoder.decode(new EncodedVideoChunk({ type: isKey ? 'key' : 'delta', timestamp: v.t * 1000, data: unb64(v.d) })); } catch { makeDecoder(); wantKey(); }
-  };
-  onChildAdded(vref, onFrame); onChildChanged(vref, onFrame);
-
-  const timers = [setInterval(beat, 4000)];
-  let lastShown = 0, lastBytes = 0;
-  timers.push(setInterval(() => {
-    if (live && Date.now() - lastFrameAt > 6000) { setStat('err', 'Waiting for host'); wantKey(); }
-    else if (live) setStat('ok', `${Math.round((shown - lastShown) / 1.5)} fps · ${(((rxBytes - lastBytes) * 8) / 1.5 / 1e6).toFixed(1)} Mbps`);
-    lastShown = shown; lastBytes = rxBytes;
-  }, 1500));
-  wantKey();
-  setTimeout(() => { if (!shown && !dead) say('Waiting for video… is the Arc 1 host running?', 'err'); }, 10000);
-  stop = () => { dead = true; live = false; off(vref); timers.forEach(clearInterval); try { decoder.close(); } catch {} screen.style.display = 'none'; stop = null; };
-}
-
-// ---- account: email + password, then the emailed verification link; verified accounts see their devices ----
-const creds = () => [$('email').value.trim(), $('pass').value];
-form.onsubmit = async e => { e.preventDefault(); const [em, pw] = creds(); say('Signing in…'); try { await signInWithEmailAndPassword(auth, em, pw); } catch (x) { fail(x); form.hidden = false; } };
-$('make').onclick = async () => { const [em, pw] = creds(); say('Creating your account…'); try { const c = await createUserWithEmailAndPassword(auth, em, pw); await sendEmailVerification(c.user); } catch (x) { fail(x); form.hidden = false; } };
-$('again').onclick = async () => { await user.reload(); await user.getIdToken(true); gate(); };
-$('out').onclick = () => signOut(auth);
-
-const renderDevices = snap => {
-  const all = snap.val() || {}, ids = Object.keys(all);
-  devs.replaceChildren(...ids.map(id => {
-    const d = all[id], on = Date.now() - d.t < 60000, b = document.createElement('button');
-    b.type = 'button'; b.className = 'dev' + (on ? ' on' : '');
-    b.innerHTML = '<i class="dot"></i><span></span><small></small>';
-    b.children[1].textContent = d.name; b.children[2].textContent = on ? 'Online' : 'Offline';
-    b.onclick = () => connect(`${user.uid}/${id}`);
-    return b;
-  }));
-  say(ids.length ? 'Choose a device.' : 'No devices yet. Run Start.command on a Mac and sign in there.', ids.length ? 'ok' : 'busy');
-};
-function gate() {
-  devOff?.(); devOff = null;
-  if (!user) { say('Sign in to see your devices.'); return showForm(); }
-  form.hidden = true; $('out').hidden = false;
-  if (!user.emailVerified) { devs.hidden = true; $('again').hidden = false; return say(`We sent a verification link to ${user.email}. Open it, then come back.`); }
-  $('again').hidden = true; devs.hidden = false;
-  const r = dref(rdb, `devices/${user.uid}`);
-  onValue(r, renderDevices); devOff = () => off(r);
-}
-onAuthStateChanged(auth, u => { user = u; gate(); });
-</script>
+<!--Script-->
 </body>
 </html>
