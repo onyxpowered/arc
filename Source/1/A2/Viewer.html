@@ -55,6 +55,16 @@
   .right { display: flex; align-items: center; gap: 8px; }
   .icon { width: 30px; height: 30px; display: grid; place-items: center; padding: 0; color: var(--fg); background: rgba(10, 10, 10, .72); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 999px; }
   .icon:hover { border-color: var(--border-hover); background: rgba(24, 24, 24, .8); }
+  .ghost { height: 40px; border: 1px solid var(--border); background: transparent; color: var(--fg); border-radius: 8px; padding: 0 16px; }
+  .ghost:hover { border-color: var(--border-hover); background: #111; }
+  #devs { display: flex; flex-direction: column; gap: 8px; }
+  #devs[hidden], #out[hidden], #again[hidden] { display: none; }
+  .dev { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px; text-align: left; color: var(--fg); background: #000; border: 1px solid var(--border); border-radius: 8px; }
+  .dev:hover { border-color: var(--border-hover); background: #111; }
+  .dev .dot { background: var(--dim); }
+  .dev.on .dot { background: var(--ok); }
+  .dev span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dev small { font: 400 12px var(--mono); color: var(--dim); }
 </style>
 </head>
 <body>
@@ -73,31 +83,37 @@
       <svg width="20" height="20" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2 15 14H1z" fill="#ededed"/></svg>
       <h1>Arc 1</h1>
     </div>
-    <div class="status busy" id="state"><i class="dot"></i><p id="msg">Enter the room code to connect.</p></div>
-    <form id="form" autocomplete="off">
-      <input id="code" name="code" placeholder="Room code" spellcheck="false" autocapitalize="off" autocorrect="off" maxlength="32" aria-label="Room code">
-      <button id="go" class="primary" type="submit">Connect</button>
+    <div class="status busy" id="state"><i class="dot"></i><p id="msg">Sign in to see your devices.</p></div>
+    <form id="form" autocomplete="on">
+      <input id="email" name="email" type="email" placeholder="Email" autocomplete="username" spellcheck="false" autocapitalize="off" aria-label="Email">
+      <input id="pass" name="pass" type="password" placeholder="Password" autocomplete="current-password" aria-label="Password">
+      <button id="go" class="primary" type="submit">Sign in</button>
+      <button id="make" class="ghost" type="button">Create account</button>
     </form>
+    <div id="devs" hidden></div>
+    <button id="again" class="primary" type="button" hidden>I verified my email</button>
+    <button id="out" class="ghost" type="button" hidden>Sign out</button>
   </section>
 </main>
 
 <script src="../Config.js"></script>
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, signOut } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 import { getDatabase, ref as dref, set as dset, get as dget, onChildAdded, onChildChanged, onValue, off } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
 
 const app = initializeApp(ArcConfig);
 const rdb = getDatabase(app);
 const $ = id => document.getElementById(id);
-const screen = $('screen'), sx = screen.getContext('2d', { alpha: false }), hud = $('hud'), msg = $('msg'), stat = $('stat'), form = $('form'), code = $('code'), bar = $('bar');
-const ROOM_RE = /^[a-z0-9]{8,32}$/;
+const screen = $('screen'), sx = screen.getContext('2d', { alpha: false }), hud = $('hud'), msg = $('msg'), stat = $('stat'), form = $('form'), bar = $('bar'), devs = $('devs');
+const auth = getAuth(app);
 
-let room = (location.hash || '').slice(1).toLowerCase();
-try { if (!room) room = localStorage.getItem('arc-room') || ''; } catch {}
+let room = '', user = null, devOff = null;   // room = <uid>/<device>
 const setStat = (kind, text) => { $('pill').className = 'pill ' + kind; stat.textContent = text; };
 const say = (t, kind = 'busy') => { msg.textContent = t; $('state').className = 'status ' + kind; hud.classList.remove('hidden'); };
-const showForm = label => { form.hidden = false; $('go').textContent = label; code.focus(); };
-if (ROOM_RE.test(room)) code.value = room;
+const showForm = () => { form.hidden = false; devs.hidden = true; $('again').hidden = true; $('out').hidden = true; $('email').focus(); };
+const AuthErrors = { 'auth/invalid-credential': 'Wrong email or password.', 'auth/email-already-in-use': 'That email already has an account. Sign in instead.', 'auth/weak-password': 'Use a password of at least 6 characters.', 'auth/invalid-email': 'That email does not look right.', 'auth/too-many-requests': 'Too many tries. Wait a moment.', 'auth/operation-not-allowed': 'Email/password sign-in is not enabled in this Firebase project.' };
+const fail = e => say(AuthErrors[e.code] || e.message, 'err');
 
 // the top bar fades while you work and returns when the pointer moves
 let fadeTimer = 0;
@@ -137,15 +153,11 @@ setInterval(() => { if (live) flush(); }, 16);
 
 // ---- video: H.264 chunks from rooms/<room>/v/<slot>, decoded with WebCodecs ----
 let stop = null;
-async function connect() {
-  const typed = code.value.trim().toLowerCase();
-  if (typed) room = typed;
-  if (!ROOM_RE.test(room)) { say('That room code does not look right.', 'err'); setStat('err', 'Not connected'); return showForm('Connect'); }
+async function connect(target) {
+  room = target;
   if (!('VideoDecoder' in window)) { say('This browser cannot decode video (WebCodecs missing). Use Chrome, Edge or Safari.', 'err'); return; }
-  try { localStorage.setItem('arc-room', room); } catch {}
-  history.replaceState(null, '', '#' + room);
   stop?.();
-  say('Connecting…'); setStat('busy', 'Connecting'); form.hidden = true;
+  say('Connecting…'); setStat('busy', 'Connecting'); form.hidden = true; devs.hidden = true; $('out').hidden = true; $('again').hidden = true;
 
   const vref = dref(rdb, `rooms/${room}/v`);
   let baseSeq = -1, lastSeq = -1, needKey = true, offset = Infinity, shown = 0, keyCounter = 0, dead = false, rxBytes = 0, lastFrameAt = 0;
@@ -191,8 +203,35 @@ async function connect() {
   stop = () => { dead = true; live = false; off(vref); timers.forEach(clearInterval); try { decoder.close(); } catch {} screen.style.display = 'none'; stop = null; };
 }
 
-form.onsubmit = e => { e.preventDefault(); connect(); };
-if (ROOM_RE.test(room)) connect(); else { say('Enter the room code to connect.', 'busy'); setStat('busy', 'Not connected'); showForm('Connect'); }
+// ---- account: email + password, then the emailed verification link; verified accounts see their devices ----
+const creds = () => [$('email').value.trim(), $('pass').value];
+form.onsubmit = async e => { e.preventDefault(); const [em, pw] = creds(); say('Signing in…'); try { await signInWithEmailAndPassword(auth, em, pw); } catch (x) { fail(x); form.hidden = false; } };
+$('make').onclick = async () => { const [em, pw] = creds(); say('Creating your account…'); try { const c = await createUserWithEmailAndPassword(auth, em, pw); await sendEmailVerification(c.user); } catch (x) { fail(x); form.hidden = false; } };
+$('again').onclick = async () => { await user.reload(); await user.getIdToken(true); gate(); };
+$('out').onclick = () => signOut(auth);
+
+const renderDevices = snap => {
+  const all = snap.val() || {}, ids = Object.keys(all);
+  devs.replaceChildren(...ids.map(id => {
+    const d = all[id], on = Date.now() - d.t < 60000, b = document.createElement('button');
+    b.type = 'button'; b.className = 'dev' + (on ? ' on' : '');
+    b.innerHTML = '<i class="dot"></i><span></span><small></small>';
+    b.children[1].textContent = d.name; b.children[2].textContent = on ? 'Online' : 'Offline';
+    b.onclick = () => connect(`${user.uid}/${id}`);
+    return b;
+  }));
+  say(ids.length ? 'Choose a device.' : 'No devices yet. Run Start.command on a Mac and sign in there.', ids.length ? 'ok' : 'busy');
+};
+function gate() {
+  devOff?.(); devOff = null;
+  if (!user) { say('Sign in to see your devices.'); return showForm(); }
+  form.hidden = true; $('out').hidden = false;
+  if (!user.emailVerified) { devs.hidden = true; $('again').hidden = false; return say(`We sent a verification link to ${user.email}. Open it, then come back.`); }
+  $('again').hidden = true; devs.hidden = false;
+  const r = dref(rdb, `devices/${user.uid}`);
+  onValue(r, renderDevices); devOff = () => off(r);
+}
+onAuthStateChanged(auth, u => { user = u; gate(); });
 </script>
 </body>
 </html>

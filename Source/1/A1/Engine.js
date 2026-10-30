@@ -3,7 +3,8 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Room } from './Engine/Room.js';
+import { Account } from './Engine/Account.js';
+import { Device, Presence } from './Engine/Device.js';
 import { Info } from './Engine/Info.js';
 import { Frames } from './Engine/Frames.js';
 import { Heartbeat } from './Engine/Heartbeat.js';
@@ -12,7 +13,9 @@ import { Input } from './Engine/Input.js';
 const Here = path.dirname(fileURLToPath(import.meta.url));
 const Env = process.env;
 const Width = +Env.WIDTH || 1366, Fps = +Env.FPS || 30, Kbps = +Env.KBPS || 3000;
-const Code = Room();
+const User = await Account(), Id = Device();
+const Code = `${User.uid}/${Id}`;      // rooms/<uid>/<device>
+Presence(User, Id);
 const Stamp = () => new Date().toISOString().slice(11, 19);
 
 let Child = null, Seq = Date.now(), NeedKey = true;
@@ -55,6 +58,6 @@ function Packet(Type, Payload) {
 
 await Frame.Clear(); await Keys.Clear();
 Start();
-console.log(`Arc 1 host up. Room ${Code}\nViewer: file://${path.join(Here, '..', 'A2', 'Viewer.html')}#${Code}`);
+console.log(`Arc 1 host up. Device ${Id}\nViewer: file://${path.join(Here, '..', 'A2', 'Viewer.html')}`);
 const Bye = () => { try { Child?.kill(); } catch {} process.exit(0); };
 process.on('SIGINT', Bye); process.on('SIGTERM', Bye);

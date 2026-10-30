@@ -2,19 +2,33 @@
   "rules": {
     ".read": false,
     ".write": false,
+    "devices": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid && auth.token.email_verified === true",
+        "$device": {
+          ".write": "auth != null && auth.uid === $uid && auth.token.email_verified === true",
+          ".validate": "newData.hasChildren(['name', 't']) && newData.child('name').isString() && newData.child('name').val().length < 64",
+          "name": { ".validate": true },
+          "t": { ".validate": true },
+          "$other": { ".validate": false }
+        }
+      }
+    },
     "rooms": {
-      "$room": {
-        ".read": "$room.matches(/^[a-z0-9]{8,32}$/)",
-        ".write": "$room.matches(/^[a-z0-9]{8,32}$/)",
-        "v": {
-          "$slot": { ".validate": "newData.hasChildren(['s', 'k', 't', 'd']) && newData.child('d').isString() && newData.child('d').val().length < 2000000" }
-        },
-        "hb": { ".validate": "newData.hasChildren(['sid', 'key', 't'])" },
-        "in": {
-          "$slot": { ".validate": "newData.hasChildren(['sid', 's', 'e'])" }
-        },
-        "info": { ".validate": true },
-        "$other": { ".validate": false }
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid && auth.token.email_verified === true",
+        ".write": "auth != null && auth.uid === $uid && auth.token.email_verified === true",
+        "$device": {
+          "v": {
+            "$slot": { ".validate": "newData.hasChildren(['s', 'k', 't', 'd']) && newData.child('d').isString() && newData.child('d').val().length < 2000000" }
+          },
+          "hb": { ".validate": "newData.hasChildren(['sid', 'key', 't'])" },
+          "in": {
+            "$slot": { ".validate": "newData.hasChildren(['sid', 's', 'e'])" }
+          },
+          "info": { ".validate": true },
+          "$other": { ".validate": false }
+        }
       }
     }
   }
